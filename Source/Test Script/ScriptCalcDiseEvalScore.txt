@@ -1,0 +1,20 @@
+function computeDietDiseScoreTest(recomCount, limitCount, preventCount, freqConsump) {
+  var dietDiseEvalScore;
+  if (freqConsump == "H") {
+    dietDiseEvalScore = ((100.0*recomCount + 50.0*limitCount) /
+                    (100.0 * (recomCount + limitCount + preventCount))) * 100.0;
+  }
+  else if (freqConsump == "M") {
+    dietDiseEvalScore = ((100.0*recomCount + 60.0*limitCount + 10.0*preventCount) /
+                        (100.0 * (recomCount + limitCount + preventCount))) * 100.0;
+  }
+  else {
+    dietDiseEvalScore = ((100.0*recomCount + 70.0*limitCount + 20.0*preventCount) /
+                        (100.0 * (recomCount + limitCount + preventCount))) * 100.0;
+  }
+  return dietDiseEvalScore;
+};
+
+computeDietDiseScoreTest(2, 1, 3, "H");
+// computeDietDiseScoreTest(3, 2, 4, "M");
+// computeDietDiseScoreTest(4, 2, 1, "L");

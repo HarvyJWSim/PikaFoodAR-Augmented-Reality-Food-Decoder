@@ -1,0 +1,20 @@
+function computeAdditiveScoreTest(safeCount, cautionCount, cutBackCount, avoidCount, bannedCount, freqConsump) {
+  var addtEvalScore = 0;
+  if (freqConsump == "H") {
+    addtEvalScore = ((100.0*safeCount + 75.0*cautionCount + 50.0*cutBackCount + 25.0*avoidCount) /
+                    (100.0 * (safeCount + cautionCount + cutBackCount + avoidCount + bannedCount))) * 100.0;
+  }
+  else if (freqConsump == "M") {
+    addtEvalScore = ((100.0*safeCount + 80.0*cautionCount + 75.0*cutBackCount + 30.0*avoidCount + 5.0*bannedCount) /
+                    (100.0 * (safeCount + cautionCount + cutBackCount + avoidCount + bannedCount))) * 100.0;
+  }
+  else {
+    addtEvalScore = ((100.0*safeCount + 85.0*cautionCount + 100.0*cutBackCount + 35.0*avoidCount + 10.0*bannedCount) /
+                    (100.0 * (safeCount + cautionCount + cutBackCount + avoidCount + bannedCount))) * 100.0;
+  }
+  return addtEvalScore;
+};
+
+computeAdditiveScoreTest(5, 6, 3, 1, 0, "H");
+// computeAdditiveScoreTest(3, 2, 4, 2, 1, "M");
+// computeAdditiveScoreTest(9, 2, 1, 2, 1, "L");
