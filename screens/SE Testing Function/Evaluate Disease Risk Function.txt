@@ -1,0 +1,94 @@
+  evaluateDiseRisk = (fuzzyMatchedlabel, digitisedTextJson, label) => {
+    console.log("MATCHING " + fuzzyMatchedlabel + " AND " + label)
+
+    // label = label.replace(/\(|\)/, "");
+    let serverUrl = "http://" + global.address + "/pikafoodar/dise-risk-eval.php";
+    fetch(serverUrl, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            ingdName: fuzzyMatchedlabel,
+        })
+    }).then((response) => response.json()).then((responseJson) => {
+        if (responseJson.length > 0 && responseJson[0].hasOwnProperty("INGD_RECOM")) {
+            let responseJsonLen = responseJson.length;
+            var filteredResponseJson = [];
+            for (var i = 0; i < responseJsonLen; i++) {
+              if (global.diseList.includes(responseJson[i]["DISE_ID"])) {
+                filteredResponseJson.push(responseJson[i]["INGD_RECOM"]);
+              }
+            }
+            responseJsonLen = filteredResponseJson.length;
+            var diseRiskEval;
+            for (var i = 0; i < responseJsonLen; i++) {
+              if (filteredResponseJson[i] == 'P') {
+                diseRiskEval = 'P';
+                break;
+              }
+              else if (filteredResponseJson[i] == 'L' && diseRiskEval != 'P')
+                diseRiskEval = 'L';
+              else if (filteredResponseJson[i] == 'R' && diseRiskEval != 'P' && diseRiskEval != 'L')
+                diseRiskEval = 'R';
+            }
+
+            // let diseRiskEval = responseJson[0]["INGD_RECOM"];
+            if (diseRiskEval != null) {
+              this.setState(state => ({
+                ingdIdList: state.ingdIdList.concat(responseJson[0]["INGD_ID"])
+              }));
+              var diseRiskEvalList = [];
+              switch(diseRiskEval) {
+                case 'R':
+                  diseRiskEvalList = this.state.diseRiskEval.concat("#00C851")
+                  this.setState(previousState => ({ recomCount: previousState.recomCount + 1 }));
+                  break;
+                case 'L':
+                  diseRiskEvalList = this.state.diseRiskEval.concat("#FAD61F")
+                  this.setState(previousState => ({ limitCount: previousState.limitCount + 1 }));
+                  break;
+                case 'P':
+                  diseRiskEvalList = this.state.diseRiskEval.concat("#F62D13")
+                  this.setState(previousState => ({ preventCount: previousState.preventCount + 1 }));
+              }
+
+              let dietDiseEvalScore = ((100.0*this.state.recomCount + 60.0*this.state.limitCount + 10.0*this.state.preventCount) /
+                                      (100.0 * (this.state.recomCount + this.state.limitCount + this.state.preventCount))) * 100.0;
+              this.setState({
+                dietDiseEvalScore: dietDiseEvalScore.toFixed(2)
+              });
+
+              let digitisedTextJsonLen = digitisedTextJson.responses[0].textAnnotations.length;
+              let labelIndex = 0;
+              for (var i = 1; i < digitisedTextJsonLen; i++) {
+                var jsonLabel = digitisedTextJson.responses[0].textAnnotations[i].description.toLowerCase();
+                label = label.replace(/\,|\(|\)/, "");
+                jsonLabel = jsonLabel.replace(/\,|\(|\)/, "");
+                if (jsonLabel == label.split(" ")[0]) {
+                  console.log("MATCHED DISE" + fuzzyMatchedlabel);
+                  vertices  = digitisedTextJson.responses[0].textAnnotations[i].boundingPoly.vertices;
+                  let xPointOne = this.mapXAxisLine(vertices[0].x);
+                  let xPointTwo = this.mapXAxisLine(vertices[2].x);
+                  let yPointOne = this.mapYAxisLine(vertices[0].y);
+                  let yPointTwo = this.mapYAxisLine(vertices[2].y);
+
+                  this.setState(state => ({
+                    xPoint1: state.xPoint1.concat(xPointOne),
+                    xPoint2: state.xPoint2.concat(xPointTwo),
+                    yPoint1: state.yPoint1.concat(yPointOne),
+                    yPoint2: state.yPoint2.concat(yPointTwo),
+                    diseRiskEval: diseRiskEvalList
+                  }), () => {
+                    i = digitisedTextJsonLen;
+                  });
+                }
+              }
+            }
+          }
+        }).catch((error) => {
+          console.log(error);
+            console.log("skip");
+        });
+  }

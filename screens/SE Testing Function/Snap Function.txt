@@ -1,0 +1,206 @@
+  snap = async () => {
+    this.setState({
+      xPoint1 : [],
+      xPoint2 : [],
+      yPoint1 : [],
+      yPoint2 : [],
+      xMidPoint: [],
+      yMidPoint: [],
+      addtEval: [],
+      ingdIdList: [],
+      diseRiskEval: [],
+      tokenList: [],
+      tokenNameList: [],
+      fuzzyMatchedTokenNameList: [],
+      ARGuideText : "Pikaaa zzz... Tap the Button below to start scanning!",
+      progress: 0,
+      scanAnimIterationCnt: "0"
+    });
+    if (this.camera) {
+      this.setState({
+        ARGuideText: "Food Label Detection Starts...",
+        imageSrc : require("../assets/images/Pika-Stand.png"),
+        progress: 0.1,
+        progressColor: "#546893"
+      });
+      let photo = await this.camera.takePictureAsync({quality: 0.5, base64: true});
+      try {
+        this.setState({ uploading: true });
+        //const uri = Asset.fromModule(require('../assets/images/Beverage.jpg')).uri;
+        //const manipResult = await ImageManipulator.manipulateAsync(url, [], { base64: true });
+        //var encodedString = Base64.encode(uri);
+        let body = JSON.stringify({
+          requests: [
+            {
+              features: [
+                { type: "DOCUMENT_TEXT_DETECTION" },
+                //{ type: "CROP_HINTS" }
+              ],
+              image: {
+                  content: photo.base64
+              }
+            }
+          ]
+        });
+        console.log("FETCHING");
+
+        let response = await fetch(
+          "https://vision.googleapis.com/v1/images:annotate?key=" +
+            Environment["GOOGLE_CLOUD_VISION_API_KEY"],
+          {
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json"
+            },
+            method: "POST",
+            body: body
+          }
+        );
+        this.setState({
+          ARGuideText: "Food Label Detected!",
+          imageSrc : require("../assets/images/Pika-Stand.png"),
+          progress: 0.3
+        });
+        var digitisedTextJson = await response.json();
+        // console.log(responseJson);
+
+
+        this.setState({
+          ARGuideText: "Processing Food Label...",
+          imageSrc : require("../assets/images/Pika-Stand.png"),
+          progress: 0.4
+        }, () => {
+          let text  = digitisedTextJson.responses[0].textAnnotations[0].description;
+          text = text.replace(/\n/g, " ");
+          text = text.replace("and", ",");
+          text = text.replace("&", ",");
+          let tokenList = text.split(/\,|\(|\)|\:/);
+          var stopWords = ["extract", "vitamin", "powder", "natural"];
+          stopWordsLen = stopWords.length;
+          console.log(tokenList.length);
+          tokenList = tokenList.map(elem => {
+            for (var i = 0; i < stopWordsLen; i++)
+              elem = elem.replace(stopWords[i], "");
+            elem = elem.trim();
+            elem = elem.toLowerCase();
+            var elemLen = elem.length;
+            if (elem.charAt(elem.length - 1) == 's')
+              elem = elem.substring(0, elemLen - 1);
+            return elem;
+          });
+          //console.log(vertices);
+          let tokenListLen = tokenList.length;
+
+          var promiseList = [];
+          var fuzzyMatchedTokenNameList = [];
+          for (var i = 0; i < tokenListLen; i++) {
+            fuzzyMatchedTokenNameList[i] = tokenList[i];
+          }
+          this.setState({
+            tokenList: tokenList
+          }, () => {
+            var tokenList = this.state.tokenList;
+            // console.log("ISTOKENLIST EMPTY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" + tokenList);
+            // console.log("ISTOKENLIST EMPTY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" + typeof(tokenList));
+            var promiseList = [];
+            for (var i = 0; i < tokenListLen; i++) {
+              let serverUrl = "http://" + global.address + "/pikafoodar/ingd-name.php";
+              var promise = fetch(serverUrl, {
+                  method: 'POST',
+                  headers: {
+                      'Accept': 'application/json',
+                      'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                      token: tokenList[i]
+                  })
+              }).then(async(response) =>await response.json()).then((responseJson) => {
+                if (responseJson.hasOwnProperty("ingdName")) {
+                  var fuzzyMatchedIngdName = responseJson.ingdName;
+                  var ingdName = responseJson.initIngdName;
+                  if (fuzzyMatchedIngdName != "Mismatch") {
+                    if (fuzzyMatchedTokenNameList[i] != fuzzyMatchedIngdName) {
+                      console.log("SUCCESS! CHANGEDTO" + fuzzyMatchedIngdName);
+                      fuzzyMatchedTokenNameList[i] = fuzzyMatchedIngdName;
+                    }
+
+                    console.log("MYTOKENNEW2" + ingdName);
+                    console.log("MYFUZZYNEW2" + fuzzyMatchedTokenNameList[i]);
+                    this.setState(state => ({
+                      tokenNameList: state.tokenNameList.concat(ingdName),
+                      fuzzyMatchedTokenNameList: state.fuzzyMatchedTokenNameList.concat(fuzzyMatchedTokenNameList[i]),
+                    }));
+                  }
+                  // this.setState({
+                  //   tokenNameList: tokenList,
+                  //   fuzzyMatchedTokenNameList: fuzzyMatchedTokenNameList
+                  // });
+                }
+              }).catch((error) => {
+                  console.log("error");
+              });
+              promiseList.push(promise);
+            }
+          });
+
+          // await delay(1000);
+          // console.log("WAIT 1SEC")
+          // await delay(1000);
+          // console.log("WAIT 1SEC")
+          // await delay(1000);
+          // console.log("WAIT 1SEC")
+// Promise.all(promiseList).then(
+          setTimeout(() => {
+            console.log("START LAST FUNC");
+            var tokenNameList = this.state.tokenNameList;
+            var fuzzyMatchedTokenNameList = this.state.fuzzyMatchedTokenNameList;
+            console.log("TOKEN TO PROMISE" + tokenNameList);
+            console.log("FUZZY TO PROMISE" + fuzzyMatchedTokenNameList);
+            let newlinePattern = /\n/;
+            var newLinePos;
+            var tokenListLen = tokenNameList.length;
+            this.setState({
+              ARGuideText: "Evaluating Food Additives...",
+              imageSrc : require("../assets/images/Pika-Stand.png"),
+              progress: 0.6
+            }, () => {
+              for (var i = 0; i < tokenListLen; i++) {
+                newLinePos = fuzzyMatchedTokenNameList[i].search(newlinePattern);
+                if (newLinePos == -1)
+                  this.evaluateAddt(fuzzyMatchedTokenNameList[i], digitisedTextJson, tokenNameList[i]);
+              }
+
+              this.setState({
+                ARGuideText: "Evaluating Food Ingredients...",
+                imageSrc : require("../assets/images/Pika-Stand.png"),
+                progress: 0.8
+              }, () => {
+                for (var i = 0; i < tokenListLen; i++) {
+                  newLinePos = fuzzyMatchedTokenNameList[i].search(newlinePattern);
+                  if (newLinePos == -1)
+                    this.evaluateDiseRisk(fuzzyMatchedTokenNameList[i], digitisedTextJson, tokenNameList[i]);
+                }
+                // this.evaluateAddt("salt", digitisedTextJson);
+                //tokenList.map(this.evaluateLabel);
+                //console.log("LENGTH" + responseJson.length);
+                // console.log(responseJson[0].vertices);
+                // this.setState({
+                //   googleResponse: responseJson,
+                //   uploading: false
+                // });
+                this.setState({
+                  ARGuideText: "Evaluation Done!",
+                  imageSrc : require("../assets/images/Pika-Sleep.png"),
+                  progress: 1.0,
+                  progressColor: "#00C851",
+                  detailEvalAnimIterationCnt: "5"
+                });
+
+              });
+
+            });
+        }, 2000);
+      })
+      } catch (error) {
+        console.log(error);
+      

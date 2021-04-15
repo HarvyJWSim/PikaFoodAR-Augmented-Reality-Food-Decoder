@@ -1,0 +1,81 @@
+evaluateAddt = (fuzzyMatchedlabel, digitisedTextJson, label) => {
+    console.log("MATCHING " + fuzzyMatchedlabel + " AND " + label)
+    // label = label.replace(/\(|\)/, "");
+    let serverUrl = "http://" + global.address + "/pikafoodar/addt-eval.php";
+
+    fetch(serverUrl, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            ingdName: fuzzyMatchedlabel,
+        })
+    }).then((response) => response.json()).then((responseJson) => {
+        if (responseJson.length > 0) {
+          let addEvalId = responseJson[0]["ADD_EVAL_ID"];
+          var addtEvalList = [];
+          switch(addEvalId) {
+            case '1':
+              addtEvalList = this.state.addtEval.concat("check-circle")
+              this.setState(previousState => ({ safeCount: previousState.safeCount + 1 }));
+              break;
+            case '2':
+              addtEvalList = this.state.addtEval.concat("error")
+              this.setState(previousState => ({ cautionCount: previousState.cautionCount + 1 }));
+              break;
+            case '3':
+              addtEvalList = this.state.addtEval.concat("content-cut")
+              this.setState(previousState => ({ cutBackCount: previousState.cutBackCount + 1 }));
+              break;
+            case '4':
+              addtEvalList = this.state.addtEval.concat("group")
+              break;
+            case '5':
+              addtEvalList = this.state.addtEval.concat("do-not-disturb-alt")
+              this.setState(previousState => ({ avoidCount: previousState.avoidCount + 1 }));
+              break;
+            case '6':
+              addtEvalList = this.state.addtEval.concat("cancel")
+              this.setState(previousState => ({ bannedCount: previousState.bannedCount + 1 }));
+            default:
+              return;
+          }
+
+          let addtEvalScore = ((100.0*this.state.safeCount + 80.0*this.state.cautionCount + 75.0*this.state.cutBackCount + 30.0*this.state.avoidCount + 5.0*this.state.bannedCount) /
+          (100.0 * (this.state.safeCount + this.state.cautionCount + this.state.cutBackCount + this.state.avoidCount + this.state.bannedCount))) * 100.0;
+          this.setState({
+            addtEvalScore: addtEvalScore.toFixed(2)
+          });
+
+          if (addtEvalList != []) {
+            this.setState(state => ({
+              ingdIdList: state.ingdIdList.concat(responseJson[0]["INGD_ID"])
+            }));
+            let digitisedTextJsonLen = digitisedTextJson.responses[0].textAnnotations.length;
+            let labelIndex = 0;
+            for (var i = 1; i < digitisedTextJsonLen; i++) {
+              var jsonLabel = digitisedTextJson.responses[0].textAnnotations[i].description.toLowerCase();
+              label = label.replace(/\,|\(|\)/, "");
+              jsonLabel = jsonLabel.replace(/\,|\(|\)/, "");
+              if (jsonLabel == label.split(" ")[0]) {
+                console.log("MATCHED " + fuzzyMatchedlabel);
+                vertices  = digitisedTextJson.responses[0].textAnnotations[i].boundingPoly.vertices;
+                xPoint = this.mapXPoint(vertices[0].x);
+                yPoint = this.mapYPoint(vertices[0].y);
+                this.setState(state => ({
+                  xMidPoint: state.xMidPoint.concat(xPoint),
+                  yMidPoint: state.yMidPoint.concat(yPoint),
+                  addtEval: addtEvalList
+                }), () => {
+                  i = digitisedTextJsonLen;
+                });
+              }
+            }
+          }
+        }
+    }).catch((error) => {
+        console.log("error");
+    });
+  }
